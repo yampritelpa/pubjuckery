@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 23 12:14:01 2019
+
+@author: Priyam
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn import neighbors, datasets, preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+
+df = pd.read_csv('house-prices-advanced-regression-techniques/train.csv')
+
+#MAPS
+
+def buildhoodmap(df):
+    nbm = df[['Neighborhood','SalePrice']].sort_values('SalePrice',ascending=False)
+    #
+    nbm = pd.pivot_table(nbm,values='SalePrice',columns='Neighborhood',
+                         aggfunc='mean').sort_values(ascending=True)
+    nbm = nbm.reset_index('SalePrice')
+    hood_sorted = nbm.Neighborhood
+    
+    hoodnum = np.array(hood_sorted.index)
+    hoodmap = {}
+    for k in range(len(hoodnum)):
+        hoodmap.update({hood_sorted[k]:hoodnum[k]})
+    return(hoodmap)
+
+def maps(df,hoodmap):
+    Qnummap = {'Ex':4,'Gd':3,'TA':2,'Fa':1,'Po':0}
+    df['ExQnum']=df['ExterQual'].map(Qnummap)
+    df['hood']=df['Neighborhood'].map(hoodmap)
+    return(df)
+
+###
+hoodmap = buildhoodmap(df)
+df = maps(df,hoodmap)
+
+correlations = df.corr().SalePrice
+indicators = [n for n in range(len(correlations)) if abs(correlations[n])>0.6]
+indmat = df.iloc[:,indicators]
+indicators = indmat.columns
+
+numinds = ['OverallQual','YearBuilt','YearRemodAdd','TotalBsmtSF',
+'1stFlrSF','GrLivArea','FullBath','TotRmsAbvGrd',
+'GarageCars','GarageArea','hood']
+
+num_ind = df[numinds]                    
+plt.matshow(num_ind.corr());plt.show()                      
+
+x_train = num_ind
+y_train = np.array(df.SalePrice.astype(float))
+
+x_tr, x_te, y_tr, y_te = train_test_split(x_train,y_train,test_size=0.95,random_state=69)
+
+
+###ML ALGORITHM
+from sklearn.ensemble import RandomForestRegressor
+rf = RandomForestRegressor(random_state=69)
+rf.fit(x_tr,y_tr)
+y_pre = rf.predict(x_te)
+
+from sklearn.linear_model import Lasso
+lasso = Lasso(alpha=0.001,random_state=69)
+lasso.fit(x_train,y_train)
+ytel = lasso.predict(x_te)
+print(np.sqrt(mean_squared_error(ytel,y_te)))
+###
+
+y_te = y_te.astype(float)
+error = abs(y_pre-y_te)/y_te
+comparison = pd.DataFrame({'pred':y_pre,'test':y_te,'error':error})
+std = np.sqrt(mean_squared_error(y_te,y_pre))
+print(std)
+
+yypre = rf.predict(x_train)
+std2 = np.sqrt(mean_squared_error(yypre,y_train))
+print(std2)
+
+###Moving onto test data
+
+
+
+test_data = pd.read_csv('house-prices-advanced-regression-techniques/test.csv')
+test_data = maps(test_data,hoodmap)
+
+#test_data = test_data.dropna(0)
+X_test = test_data[numinds]
+X_test = X_test.fillna(0)
+test_pred = (rf.predict(X_test))
+
+answers = pd.DataFrame({'Id':X_test.index+1461,'SalePrice':test_pred})
+s = answers.to_csv('house-prices-advanced-regression-techniques/housing-answers.csv',index=False,header=True)
