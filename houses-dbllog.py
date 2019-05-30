@@ -22,7 +22,8 @@ df.SalePrice = np.log1p(df.SalePrice)
 df.LotArea = np.log1p(df.LotArea)
 print("before feature extraction: ")
 plt.matshow(df.corr());plt.show()
-#MAPS
+
+###MAPS
 
 def buildhoodmap(df):
     nbm = df[['Neighborhood','SalePrice']].sort_values('SalePrice',ascending=False)
